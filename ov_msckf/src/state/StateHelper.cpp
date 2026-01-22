@@ -597,6 +597,12 @@ void StateHelper::augment_clone(std::shared_ptr<State> state, Eigen::Matrix<doub
 
   // Append the new clone to our clone vector
   state->_clones_IMU[state->_timestamp] = pose;
+  // Comparison logging for TinyVIO parity verification
+  PRINT_DEBUG("[CLONE_AUG] ts=%.6f pos=[%.6f,%.6f,%.6f]\n",
+              state->_clones_IMU.rbegin()->first,
+              state->_clones_IMU.rbegin()->second->pos()(0),
+              state->_clones_IMU.rbegin()->second->pos()(1),
+              state->_clones_IMU.rbegin()->second->pos()(2));
 
   // If we are doing time calibration, then our clones are a function of the time offset
   // Logic is based on Mingyang Li and Anastasios I. Mourikis paper:
@@ -625,6 +631,8 @@ void StateHelper::marginalize_old_clone(std::shared_ptr<State> state) {
     // Note that the marginalizer should have already deleted the clone
     // Thus we just need to remove the pointer to it from our state
     state->_clones_IMU.erase(marginal_time);
+    // Comparison logging for TinyVIO parity verification
+    PRINT_DEBUG("[CLONE_MARG] ts=%.6f num_clones=%d\n", marginal_time, (int)state->_clones_IMU.size());
   }
 }
 

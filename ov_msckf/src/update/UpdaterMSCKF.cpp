@@ -138,6 +138,9 @@ void UpdaterMSCKF::update(std::shared_ptr<State> state, std::vector<std::shared_
       it1 = feature_vec.erase(it1);
       continue;
     }
+    // Comparison logging for TinyVIO parity verification
+    PRINT_DEBUG("[MSCKF_TRI] track=%zu pos=[%.6f,%.6f,%.6f]\n",
+                (*it1)->featid, (*it1)->p_FinG(0), (*it1)->p_FinG(1), (*it1)->p_FinG(2));
     it1++;
   }
   rT2 = boost::posix_time::microsec_clock::local_time();
@@ -283,6 +286,8 @@ void UpdaterMSCKF::update(std::shared_ptr<State> state, std::vector<std::shared_
 
   // 6. With all good features update the state
   StateHelper::EKFUpdate(state, Hx_order_big, Hx_big, res_big, R_big);
+  // Comparison logging for TinyVIO parity verification
+  PRINT_DEBUG("[MSCKF_UPD] feats_used=%d res_rows=%d\n", (int)feature_vec.size(), (int)res_big.rows());
   rT5 = boost::posix_time::microsec_clock::local_time();
 
   // Debug print timing information

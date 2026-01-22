@@ -133,6 +133,12 @@ void Propagator::propagate_and_clone(std::shared_ptr<State> state, double timest
   state->_timestamp = timestamp;
   last_prop_time_offset = t_off_new;
 
+  // Comparison logging for TinyVIO parity verification
+  PRINT_DEBUG("[PROP] ts=%.6f pos=[%.6f,%.6f,%.6f] vel=[%.6f,%.6f,%.6f]\n",
+              state->_timestamp,
+              state->_imu->pos()(0), state->_imu->pos()(1), state->_imu->pos()(2),
+              state->_imu->vel()(0), state->_imu->vel()(1), state->_imu->vel()(2));
+
   // Now perform stochastic cloning
   StateHelper::augment_clone(state, last_w);
 }

@@ -650,6 +650,15 @@ void VioManager::do_feature_propagate_update(const ov_core::CameraData &message)
   }
   timelastupdate = message.timestamp;
 
+  // Comparison logging for TinyVIO parity verification
+  static int frame_count = 0;
+  frame_count++;
+  PRINT_DEBUG("[FRAME_STATE] frame=%d ts=%.6f pos=[%.6f,%.6f,%.6f] vel=[%.6f,%.6f,%.6f] q=[%.6f,%.6f,%.6f,%.6f]\n",
+              frame_count, state->_timestamp,
+              state->_imu->pos()(0), state->_imu->pos()(1), state->_imu->pos()(2),
+              state->_imu->vel()(0), state->_imu->vel()(1), state->_imu->vel()(2),
+              state->_imu->quat()(0), state->_imu->quat()(1), state->_imu->quat()(2), state->_imu->quat()(3));
+
   // Debug, print our current state
   PRINT_INFO("q_GtoI = %.3f,%.3f,%.3f,%.3f | p_IinG = %.3f,%.3f,%.3f | dist = %.2f (meters)\n", state->_imu->quat()(0),
              state->_imu->quat()(1), state->_imu->quat()(2), state->_imu->quat()(3), state->_imu->pos()(0), state->_imu->pos()(1),
