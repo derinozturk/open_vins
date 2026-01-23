@@ -286,8 +286,28 @@ int main(int argc, char **argv) {
   uint32_t frame_id = 0;
   uint64_t imu_count = 0;
   uint64_t det_count = 0;
+  uint64_t gt_count = 0;
 
   signal(SIGINT, signal_callback_handler);
+
+  // Pre-pump IMU samples to populate bias history before the first camera frame.
+  // This ensures get_state() will succeed for early camera timestamps.
+  // We need enough samples so the bias history brackets the first camera time.
+  PRINT_DEBUG("[SIM]: Pre-pumping IMU samples to populate bias history...\n");
+  int prepump_count = 0;
+  const int prepump_target = static_cast<int>(params.sim_freq_imu / params.sim_freq_cam) + 5;
+  while (prepump_count < prepump_target && sim->ok()) {
+    double time_imu;
+    Eigen::Vector3d wm, am;
+    if (sim->get_next_imu(time_imu, wm, am)) {
+      writeImuLine(replay_out, time_imu, wm, am);
+      imu_count++;
+      prepump_count++;
+    } else {
+      break;  // No more IMU available yet
+    }
+  }
+  PRINT_DEBUG("[SIM]: Pre-pumped %d IMU samples\n", prepump_count);
 
 #if ROS_AVAILABLE == 1
   while (sim->ok() && ros::ok()) {
@@ -320,6 +340,14 @@ int main(int argc, char **argv) {
       Eigen::Matrix<double, 17, 1> imustate;
       if (sim->get_state(time_cam, imustate)) {
         writeGroundTruthLine(gt_out, imustate);
+        gt_count++;
+      } else {
+        // get_state() failed - bias history doesn't bracket this time yet
+        // This can happen for the first few frames before enough IMU samples are processed
+        if (frame_id == 0) {
+          PRINT_WARNING(YELLOW "[SIM]: get_state() failed for first frame (t=%.4f) - bias history not ready\n" RESET, time_cam);
+          PRINT_WARNING(YELLOW "[SIM]: Ground truth will be missing for early frames\n" RESET);
+        }
       }
 
       // Write detections for camera 0 only (monocular mode)
@@ -357,7 +385,11 @@ int main(int argc, char **argv) {
   PRINT_INFO("===========================================\n");
   PRINT_INFO("Frames exported: %u\n", frame_id);
   PRINT_INFO("IMU samples: %lu\n", imu_count);
+  PRINT_INFO("Ground truth states: %lu\n", gt_count);
   PRINT_INFO("Detections: %lu\n", det_count);
+  if (gt_count < frame_id) {
+    PRINT_WARNING(YELLOW "WARNING: Missing %u ground truth states (bias history issue)\n" RESET, frame_id - static_cast<uint32_t>(gt_count));
+  }
   PRINT_INFO("Files written:\n");
   PRINT_INFO("  - %s\n", replay_path.c_str());
   PRINT_INFO("  - %s\n", gt_path.c_str());
