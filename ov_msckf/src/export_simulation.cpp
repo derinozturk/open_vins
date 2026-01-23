@@ -44,6 +44,7 @@
 #include "core/VioManager.h"
 #include "core/VioManagerOptions.h"
 #include "sim/Simulator.h"
+#include "state/State.h"
 #include "utils/colors.h"
 #include "utils/dataset_reader.h"
 #include "utils/print.h"
