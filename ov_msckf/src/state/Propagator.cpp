@@ -534,6 +534,21 @@ void Propagator::predict_mean_rk4(std::shared_ptr<State> state, double dt, const
                                   const Eigen::Vector3d &w_hat2, const Eigen::Vector3d &a_hat2, Eigen::Vector4d &new_q,
                                   Eigen::Vector3d &new_v, Eigen::Vector3d &new_p) {
 
+  // DEBUG: TinyVIO comparison logging - log averaged values for fair comparison
+  Eigen::Vector3d w_avg = 0.5 * (w_hat1 + w_hat2);
+  Eigen::Vector3d a_avg = 0.5 * (a_hat1 + a_hat2);
+  Eigen::Matrix3d R_itoG_dbg = state->_imu->Rot().transpose();
+  PRINT_DEBUG("[INT_DBG] dt=%.9f w=[%.9f,%.9f,%.9f] a=[%.9f,%.9f,%.9f]\n",
+              dt, w_avg(0), w_avg(1), w_avg(2), a_avg(0), a_avg(1), a_avg(2));
+  PRINT_DEBUG("[INT_DBG]   R_itoG[0]=[%.9f,%.9f,%.9f]\n",
+              R_itoG_dbg(0,0), R_itoG_dbg(0,1), R_itoG_dbg(0,2));
+  Eigen::Vector4d old_q_dbg = state->_imu->quat();
+  PRINT_DEBUG("[INT_DBG]   pre: q=[%.9f,%.9f,%.9f,%.9f] p=[%.9f,%.9f,%.9f] v=[%.9f,%.9f,%.9f]\n",
+              old_q_dbg(0), old_q_dbg(1), old_q_dbg(2), old_q_dbg(3),
+              state->_imu->pos()(0), state->_imu->pos()(1), state->_imu->pos()(2),
+              state->_imu->vel()(0), state->_imu->vel()(1), state->_imu->vel()(2));
+  // END DEBUG
+
   // Pre-compute things
   Eigen::Vector3d w_hat = w_hat1;
   Eigen::Vector3d a_hat = a_hat1;
@@ -609,6 +624,13 @@ void Propagator::predict_mean_rk4(std::shared_ptr<State> state, double dt, const
   new_q = quat_multiply(dq, q_0);
   new_p = p_0 + (1.0 / 6.0) * k1_p + (1.0 / 3.0) * k2_p + (1.0 / 3.0) * k3_p + (1.0 / 6.0) * k4_p;
   new_v = v_0 + (1.0 / 6.0) * k1_v + (1.0 / 3.0) * k2_v + (1.0 / 3.0) * k3_v + (1.0 / 6.0) * k4_v;
+
+  // DEBUG: TinyVIO comparison logging
+  PRINT_DEBUG("[INT_DBG]   post: q=[%.9f,%.9f,%.9f,%.9f] p=[%.9f,%.9f,%.9f] v=[%.9f,%.9f,%.9f]\n",
+              new_q(0), new_q(1), new_q(2), new_q(3),
+              new_p(0), new_p(1), new_p(2),
+              new_v(0), new_v(1), new_v(2));
+  // END DEBUG
 }
 
 void Propagator::compute_Xi_sum(std::shared_ptr<State> state, double dt, const Eigen::Vector3d &w_hat, const Eigen::Vector3d &a_hat,
