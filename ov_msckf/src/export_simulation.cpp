@@ -301,6 +301,9 @@ int main(int argc, char **argv) {
   }
   gt_out << "timestamp_us,qx,qy,qz,qw,px,py,pz,vx,vy,vz,bg_x,bg_y,bg_z,ba_x,ba_y,ba_z\n";
 
+  // Write initialization state as first entry (so TinyVIO can init from same state as OpenVINS)
+  writeGroundTruthLine(gt_out, imustate_init);
+
   PRINT_INFO("===========================================\n");
   PRINT_INFO("EXPORTING SIMULATION TO TINY-VIO FORMAT\n");
   PRINT_INFO("===========================================\n");
