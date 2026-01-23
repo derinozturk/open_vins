@@ -116,10 +116,10 @@ void UpdaterMSCKF::update(std::shared_ptr<State> state, std::vector<std::shared_
 
   // Log clone poses for TinyVIO comparison (only first camera)
   if (!clones_cam.empty()) {
-    const auto& clones_cam0 = clones_cam.begin()->second;
+    auto& clones_cam0 = clones_cam.begin()->second;
     int clone_idx = 0;
-    for (const auto& clone_pair : clones_cam0) {
-      const Eigen::Vector3d& p = clone_pair.second.pos();
+    for (auto& clone_pair : clones_cam0) {
+      Eigen::Vector3d p = clone_pair.second.pos();
       PRINT_DEBUG("[MSCKF_CLONES] clone[%d] ts=%.6f p=[%.6f,%.6f,%.6f]\n",
                   clone_idx++, clone_pair.first, p(0), p(1), p(2));
     }
