@@ -290,25 +290,6 @@ int main(int argc, char **argv) {
 
   signal(SIGINT, signal_callback_handler);
 
-  // Pre-pump IMU samples to populate bias history before the first camera frame.
-  // This ensures get_state() will succeed for early camera timestamps.
-  // We need enough samples so the bias history brackets the first camera time.
-  PRINT_DEBUG("[SIM]: Pre-pumping IMU samples to populate bias history...\n");
-  int prepump_count = 0;
-  const int prepump_target = static_cast<int>(params.sim_freq_imu / params.sim_freq_cam) + 5;
-  while (prepump_count < prepump_target && sim->ok()) {
-    double time_imu;
-    Eigen::Vector3d wm, am;
-    if (sim->get_next_imu(time_imu, wm, am)) {
-      writeImuLine(replay_out, time_imu, wm, am);
-      imu_count++;
-      prepump_count++;
-    } else {
-      break;  // No more IMU available yet
-    }
-  }
-  PRINT_DEBUG("[SIM]: Pre-pumped %d IMU samples\n", prepump_count);
-
 #if ROS_AVAILABLE == 1
   while (sim->ok() && ros::ok()) {
 #elif ROS_AVAILABLE == 2
@@ -336,18 +317,15 @@ int main(int argc, char **argv) {
       // Write FRAME line
       writeFrameLine(replay_out, time_cam, frame_id);
 
-      // Write ground truth at camera timestamp
+      // Write ground truth at current simulation time (IMU-aligned)
+      // Note: We use current_timestamp() instead of time_cam because the bias
+      // history is only populated at IMU timestamps. The difference is <1 IMU period.
       Eigen::Matrix<double, 17, 1> imustate;
-      if (sim->get_state(time_cam, imustate)) {
+      if (sim->get_state(sim->current_timestamp(), imustate)) {
         writeGroundTruthLine(gt_out, imustate);
         gt_count++;
       } else {
-        // get_state() failed - bias history doesn't bracket this time yet
-        // This can happen for the first few frames before enough IMU samples are processed
-        if (frame_id == 0) {
-          PRINT_WARNING(YELLOW "[SIM]: get_state() failed for first frame (t=%.4f) - bias history not ready\n" RESET, time_cam);
-          PRINT_WARNING(YELLOW "[SIM]: Ground truth will be missing for early frames\n" RESET);
-        }
+        PRINT_WARNING(YELLOW "[SIM]: get_state() failed for frame %u (t=%.4f)\n" RESET, frame_id, time_cam);
       }
 
       // Write detections for camera 0 only (monocular mode)
