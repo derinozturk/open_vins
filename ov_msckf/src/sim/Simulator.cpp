@@ -290,13 +290,6 @@ bool Simulator::get_state(double desired_time, Eigen::Matrix<double, 17, 1> &imu
 
   // If failed, then that means we don't have any more spline or bias
   if (!success_vel || !success_bias) {
-    // Debug output
-    PRINT_WARNING(YELLOW "[get_state] FAILED: desired=%.6f, spline_ok=%d, bias_ok=%d, "
-                  "bias_hist_size=%zu, bias_first=%.6f, bias_last=%.6f\n" RESET,
-                  desired_time, success_vel ? 1 : 0, success_bias ? 1 : 0,
-                  hist_true_bias_time.size(),
-                  hist_true_bias_time.empty() ? 0.0 : hist_true_bias_time.front(),
-                  hist_true_bias_time.empty() ? 0.0 : hist_true_bias_time.back());
     return false;
   }
 

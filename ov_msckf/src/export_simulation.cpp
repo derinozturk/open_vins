@@ -23,13 +23,17 @@
  * @file export_simulation.cpp
  * @brief Exports OpenVINS simulation data to tiny-vio replay CSV format.
  *
- * This executable generates simulated visual-inertial data using the OpenVINS
- * Simulator class and exports it in a format compatible with tiny-vio's
- * replay harness. The output includes:
+ * This executable runs the OpenVINS VIO pipeline on simulated data (like run_simulation.cpp)
+ * while also exporting the raw sensor data in a format compatible with tiny-vio's replay harness.
+ *
+ * The output includes:
  *   - replay.csv: IMU measurements and camera feature detections
- *   - groundtruth.csv: Ground truth poses at camera timestamps
+ *   - groundtruth.csv: Ground truth poses at VIO-processed timestamps
  *   - features_3d.csv: 3D positions of all features in the map
  *   - calibration.yaml: Camera and IMU calibration parameters
+ *
+ * By running the actual VIO pipeline, we ensure ground truth is queried at timestamps that
+ * are guaranteed to be within the simulator's bias history (VIO naturally lags behind).
  */
 
 #include <csignal>
@@ -37,10 +41,13 @@
 #include <iomanip>
 #include <memory>
 
+#include "core/VioManager.h"
 #include "core/VioManagerOptions.h"
 #include "sim/Simulator.h"
 #include "utils/colors.h"
+#include "utils/dataset_reader.h"
 #include "utils/print.h"
+#include "utils/sensor_data.h"
 
 #if ROS_AVAILABLE == 1
 #include <ros/ros.h>
@@ -50,8 +57,9 @@
 
 using namespace ov_msckf;
 
-// Global simulator for signal handler
+// Global pointers for signal handler
 std::shared_ptr<Simulator> sim;
+std::shared_ptr<VioManager> sys;
 
 // Define the function to be called when ctrl-c (SIGINT) is sent to process
 void signal_callback_handler(int signum) { std::exit(signum); }
@@ -240,14 +248,35 @@ int main(int argc, char **argv) {
     std::exit(EXIT_FAILURE);
   }
 
-  // Create simulator
+  // Create simulator and VIO system
   sim = std::make_shared<Simulator>(params);
+  sys = std::make_shared<VioManager>(params);
+
+  //===================================================================================
+  // Initialize VIO with ground truth (same as run_simulation.cpp)
+  //===================================================================================
+
+  // Get initial state at next IMU timestep (ensures bias history covers it)
+  double next_imu_time = sim->current_timestamp() + 1.0 / params.sim_freq_imu;
+  Eigen::Matrix<double, 17, 1> imustate_init;
+  bool success = sim->get_state(next_imu_time, imustate_init);
+  if (!success) {
+    PRINT_ERROR(RED "[SIM]: Could not initialize the filter to the first state\n" RESET);
+    PRINT_ERROR(RED "[SIM]: Did the simulator load properly???\n" RESET);
+    std::exit(EXIT_FAILURE);
+  }
+
+  // Adjust for camera-IMU time offset
+  imustate_init(0, 0) -= sim->get_true_parameters().calib_camimu_dt;
+
+  // Initialize VIO with ground truth
+  sys->initialize_with_gt(imustate_init);
 
   //===================================================================================
   // Open output files
   //===================================================================================
 
-  // Create output directory (using system call for simplicity)
+  // Create output directory
   std::string mkdir_cmd = "mkdir -p " + output_dir;
   int ret = system(mkdir_cmd.c_str());
   if (ret != 0) {
@@ -280,13 +309,18 @@ int main(int argc, char **argv) {
   PRINT_INFO("Camera frequency: %.1f Hz\n", params.sim_freq_cam);
 
   //===================================================================================
-  // Main simulation loop
+  // Main simulation loop (mirrors run_simulation.cpp but also exports data)
   //===================================================================================
 
   uint32_t frame_id = 0;
   uint64_t imu_count = 0;
   uint64_t det_count = 0;
   uint64_t gt_count = 0;
+
+  // Buffer for camera data (VIO processes previous frame, like run_simulation.cpp)
+  double buffer_timecam = -1;
+  std::vector<int> buffer_camids;
+  std::vector<std::vector<std::pair<size_t, Eigen::VectorXf>>> buffer_feats;
 
   signal(SIGINT, signal_callback_handler);
 
@@ -299,12 +333,15 @@ int main(int argc, char **argv) {
 #endif
 
     // IMU: get the next simulated IMU measurement if we have it
-    double time_imu;
-    Eigen::Vector3d wm, am;
-    bool hasimu = sim->get_next_imu(time_imu, wm, am);
+    ov_core::ImuData message_imu;
+    bool hasimu = sim->get_next_imu(message_imu.timestamp, message_imu.wm, message_imu.am);
     if (hasimu) {
-      writeImuLine(replay_out, time_imu, wm, am);
+      // Export IMU data for TinyVIO
+      writeImuLine(replay_out, message_imu.timestamp, message_imu.wm, message_imu.am);
       imu_count++;
+
+      // Feed to VIO system
+      sys->feed_measurement_imu(message_imu);
     }
 
     // CAM: get the next simulated camera uv measurements if we have them
@@ -314,32 +351,51 @@ int main(int argc, char **argv) {
     bool hascam = sim->get_next_cam(time_cam, camids, feats);
 
     if (hascam) {
-      // Write FRAME line
+      // Export current camera frame for TinyVIO
       writeFrameLine(replay_out, time_cam, frame_id);
-
-      // Write ground truth at camera timestamp
-      Eigen::Matrix<double, 17, 1> imustate;
-      if (sim->get_state(time_cam, imustate)) {
-        writeGroundTruthLine(gt_out, imustate);
-        gt_count++;
-      } else {
-        // Debug: print current_timestamp to understand the gap
-        PRINT_WARNING(YELLOW "[SIM]: get_state(time_cam=%.6f) failed for frame %u, current_ts=%.6f, diff=%.6f\n" RESET,
-                      time_cam, frame_id, sim->current_timestamp(), sim->current_timestamp() - time_cam);
-      }
 
       // Write detections for camera 0 only (monocular mode)
       if (!feats.empty() && !feats[0].empty()) {
         for (const auto &feat : feats[0]) {
-          // feat.first = feature_id (size_t)
-          // feat.second = [u, v] (Eigen::VectorXf)
           uint16_t track_id = static_cast<uint16_t>(feat.first % 65536);
           writeDetLine(replay_out, frame_id, feat.second(0), feat.second(1), track_id);
           det_count++;
         }
       }
 
+      // Feed PREVIOUS frame to VIO (1-frame buffer, same as run_simulation.cpp)
+      if (buffer_timecam != -1) {
+        sys->feed_measurement_simulation(buffer_timecam, buffer_camids, buffer_feats);
+
+        // Query ground truth at VIO's processed timestamp (guaranteed to be within bias history)
+        if (sys->initialized()) {
+          double gt_time = sys->get_state()->_timestamp + sim->get_true_parameters().calib_camimu_dt;
+          Eigen::Matrix<double, 17, 1> imustate;
+          if (sim->get_state(gt_time, imustate)) {
+            writeGroundTruthLine(gt_out, imustate);
+            gt_count++;
+          }
+        }
+      }
+
+      // Buffer current frame for next iteration
+      buffer_timecam = time_cam;
+      buffer_camids = camids;
+      buffer_feats = feats;
       frame_id++;
+    }
+  }
+
+  // Process the last buffered frame
+  if (buffer_timecam != -1) {
+    sys->feed_measurement_simulation(buffer_timecam, buffer_camids, buffer_feats);
+    if (sys->initialized()) {
+      double gt_time = sys->get_state()->_timestamp + sim->get_true_parameters().calib_camimu_dt;
+      Eigen::Matrix<double, 17, 1> imustate;
+      if (sim->get_state(gt_time, imustate)) {
+        writeGroundTruthLine(gt_out, imustate);
+        gt_count++;
+      }
     }
   }
 
@@ -365,9 +421,6 @@ int main(int argc, char **argv) {
   PRINT_INFO("IMU samples: %lu\n", imu_count);
   PRINT_INFO("Ground truth states: %lu\n", gt_count);
   PRINT_INFO("Detections: %lu\n", det_count);
-  if (gt_count < frame_id) {
-    PRINT_WARNING(YELLOW "WARNING: Missing %u ground truth states (bias history issue)\n" RESET, frame_id - static_cast<uint32_t>(gt_count));
-  }
   PRINT_INFO("Files written:\n");
   PRINT_INFO("  - %s\n", replay_path.c_str());
   PRINT_INFO("  - %s\n", gt_path.c_str());
