@@ -317,15 +317,13 @@ int main(int argc, char **argv) {
       // Write FRAME line
       writeFrameLine(replay_out, time_cam, frame_id);
 
-      // Write ground truth at current simulation time (IMU-aligned)
-      // Note: We use current_timestamp() instead of time_cam because the bias
-      // history is only populated at IMU timestamps. The difference is <1 IMU period.
+      // Write ground truth at camera timestamp
       Eigen::Matrix<double, 17, 1> imustate;
-      if (sim->get_state(sim->current_timestamp(), imustate)) {
+      if (sim->get_state(time_cam, imustate)) {
         writeGroundTruthLine(gt_out, imustate);
         gt_count++;
       } else {
-        PRINT_WARNING(YELLOW "[SIM]: get_state() failed for frame %u (t=%.4f)\n" RESET, frame_id, time_cam);
+        PRINT_WARNING(YELLOW "[SIM]: get_state(time_cam=%.6f) failed for frame %u\n" RESET, time_cam, frame_id);
       }
 
       // Write detections for camera 0 only (monocular mode)
