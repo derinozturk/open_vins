@@ -114,6 +114,17 @@ void UpdaterMSCKF::update(std::shared_ptr<State> state, std::vector<std::shared_
     clones_cam.insert({clone_calib.first, clones_cami});
   }
 
+  // Log clone poses for TinyVIO comparison (only first camera)
+  if (!clones_cam.empty()) {
+    const auto& clones_cam0 = clones_cam.begin()->second;
+    int clone_idx = 0;
+    for (const auto& clone_pair : clones_cam0) {
+      PRINT_DEBUG("[MSCKF_CLONES] clone[%d] ts=%.6f p=[%.6f,%.6f,%.6f]\n",
+                  clone_idx++, clone_pair.first,
+                  clone_pair.second.pos(0), clone_pair.second.pos(1), clone_pair.second.pos(2));
+    }
+  }
+
   // 3. Try to triangulate all MSCKF or new SLAM features that have measurements
   auto it1 = feature_vec.begin();
   while (it1 != feature_vec.end()) {
@@ -139,8 +150,15 @@ void UpdaterMSCKF::update(std::shared_ptr<State> state, std::vector<std::shared_
       continue;
     }
     // Comparison logging for TinyVIO parity verification
-    PRINT_DEBUG("[MSCKF_TRI] track=%zu pos=[%.6f,%.6f,%.6f]\n",
-                (*it1)->featid, (*it1)->p_FinG(0), (*it1)->p_FinG(1), (*it1)->p_FinG(2));
+    // Get first and last UV for matching tracks between systems
+    size_t cam_id = (*it1)->uvs.begin()->first;
+    const auto& uvs_vec = (*it1)->uvs.at(cam_id);
+    int num_obs = uvs_vec.size();
+    Eigen::VectorXf first_uv = uvs_vec.front();
+    Eigen::VectorXf last_uv = uvs_vec.back();
+    PRINT_DEBUG("[MSCKF_TRI] track=%zu pos=[%.6f,%.6f,%.6f] num_obs=%d first_uv=[%.2f,%.2f] last_uv=[%.2f,%.2f]\n",
+                (*it1)->featid, (*it1)->p_FinG(0), (*it1)->p_FinG(1), (*it1)->p_FinG(2),
+                num_obs, first_uv(0), first_uv(1), last_uv(0), last_uv(1));
     it1++;
   }
   rT2 = boost::posix_time::microsec_clock::local_time();
