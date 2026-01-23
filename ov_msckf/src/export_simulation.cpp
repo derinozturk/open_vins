@@ -323,7 +323,9 @@ int main(int argc, char **argv) {
         writeGroundTruthLine(gt_out, imustate);
         gt_count++;
       } else {
-        PRINT_WARNING(YELLOW "[SIM]: get_state(time_cam=%.6f) failed for frame %u\n" RESET, time_cam, frame_id);
+        // Debug: print current_timestamp to understand the gap
+        PRINT_WARNING(YELLOW "[SIM]: get_state(time_cam=%.6f) failed for frame %u, current_ts=%.6f, diff=%.6f\n" RESET,
+                      time_cam, frame_id, sim->current_timestamp(), sim->current_timestamp() - time_cam);
       }
 
       // Write detections for camera 0 only (monocular mode)
