@@ -493,6 +493,19 @@ void Propagator::predict_mean_discrete(std::shared_ptr<State> state, double dt, 
   Eigen::Matrix4d I_4x4 = Eigen::Matrix4d::Identity();
   Eigen::Matrix3d R_Gtoi = state->_imu->Rot();
 
+  // DEBUG: TinyVIO comparison logging
+  Eigen::Matrix3d R_itoG = R_Gtoi.transpose();
+  PRINT_DEBUG("[INT_DBG] dt=%.9f w=[%.9f,%.9f,%.9f] a=[%.9f,%.9f,%.9f]\n",
+              dt, w_hat(0), w_hat(1), w_hat(2), a_hat(0), a_hat(1), a_hat(2));
+  PRINT_DEBUG("[INT_DBG]   R_itoG[0]=[%.9f,%.9f,%.9f]\n",
+              R_itoG(0,0), R_itoG(0,1), R_itoG(0,2));
+  Eigen::Vector4d old_q = state->_imu->quat();
+  PRINT_DEBUG("[INT_DBG]   pre: q=[%.9f,%.9f,%.9f,%.9f] p=[%.9f,%.9f,%.9f] v=[%.9f,%.9f,%.9f]\n",
+              old_q(0), old_q(1), old_q(2), old_q(3),
+              state->_imu->pos()(0), state->_imu->pos()(1), state->_imu->pos()(2),
+              state->_imu->vel()(0), state->_imu->vel()(1), state->_imu->vel()(2));
+  // END DEBUG
+
   // Orientation: Equation (101) and (103) and of Trawny indirect TR
   Eigen::Matrix<double, 4, 4> bigO;
   if (w_norm > 1e-12) {
@@ -508,6 +521,13 @@ void Propagator::predict_mean_discrete(std::shared_ptr<State> state, double dt, 
 
   // Position: just velocity times dt, with the acceleration integrated twice
   new_p = state->_imu->pos() + state->_imu->vel() * dt + 0.5 * R_Gtoi.transpose() * a_hat * dt * dt - 0.5 * _gravity * dt * dt;
+
+  // DEBUG: TinyVIO comparison logging
+  PRINT_DEBUG("[INT_DBG]   post: q=[%.9f,%.9f,%.9f,%.9f] p=[%.9f,%.9f,%.9f] v=[%.9f,%.9f,%.9f]\n",
+              new_q(0), new_q(1), new_q(2), new_q(3),
+              new_p(0), new_p(1), new_p(2),
+              new_v(0), new_v(1), new_v(2));
+  // END DEBUG
 }
 
 void Propagator::predict_mean_rk4(std::shared_ptr<State> state, double dt, const Eigen::Vector3d &w_hat1, const Eigen::Vector3d &a_hat1,
