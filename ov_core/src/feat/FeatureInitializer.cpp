@@ -54,6 +54,9 @@ bool FeatureInitializer::single_triangulation(std::shared_ptr<Feature> feat,
   const Eigen::Matrix<double, 3, 3> &R_GtoA = anchorclone.Rot();
   const Eigen::Matrix<double, 3, 1> &p_AinG = anchorclone.pos();
 
+  // Log track ID and observation count for matching with TinyVIO
+  PRINT_DEBUG("[TRI_OBS] track=%zu num_obs=%d\n", feat->featid, total_meas);
+
   // Loop through each camera for this feature
   for (auto const &pair : feat->timestamps) {
 
@@ -73,6 +76,11 @@ bool FeatureInitializer::single_triangulation(std::shared_ptr<Feature> feat,
       // Get the UV coordinate normal
       Eigen::Matrix<double, 3, 1> b_i;
       b_i << feat->uvs_norm.at(pair.first).at(m)(0), feat->uvs_norm.at(pair.first).at(m)(1), 1;
+      // Log BEFORE transforming to anchor frame
+      Eigen::VectorXf uv_dist = feat->uvs.at(pair.first).at(m);
+      PRINT_DEBUG("[TRI_OBS] uv=[%.4f,%.4f] bearing_raw=[%.6f,%.6f,%.6f] p_CinG=[%.6f,%.6f,%.6f]\n",
+                  uv_dist(0), uv_dist(1), b_i(0), b_i(1), b_i(2),
+                  p_CiinG(0), p_CiinG(1), p_CiinG(2));
       b_i = R_AtoCi.transpose() * b_i;
       b_i = b_i / b_i.norm();
       Eigen::Matrix3d Bperp = skew_x(b_i);
@@ -108,6 +116,9 @@ bool FeatureInitializer::single_triangulation(std::shared_ptr<Feature> feat,
   // Store it in our feature object
   feat->p_FinA = p_f;
   feat->p_FinG = R_GtoA.transpose() * feat->p_FinA + p_AinG;
+  PRINT_DEBUG("[TRI_DBG] linear3D: cond=%.2f p_FinA=[%.6f,%.6f,%.6f] p_AinG=[%.6f,%.6f,%.6f]\n",
+              std::abs(condA), feat->p_FinA(0), feat->p_FinA(1), feat->p_FinA(2),
+              p_AinG(0), p_AinG(1), p_AinG(2));
   return true;
 }
 
@@ -371,6 +382,8 @@ bool FeatureInitializer::single_gaussnewton(std::shared_ptr<Feature> feat,
 
   // Finally get position in global frame
   feat->p_FinG = R_GtoA.transpose() * feat->p_FinA + p_AinG;
+  PRINT_DEBUG("[TRI_DBG] refined: depth=%.6f alpha=%.6f beta=%.6f rho=%.6f p_FinA=[%.6f,%.6f,%.6f]\n",
+              1.0/rho, alpha, beta, rho, feat->p_FinA(0), feat->p_FinA(1), feat->p_FinA(2));
   return true;
 }
 
