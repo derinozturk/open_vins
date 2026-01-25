@@ -66,27 +66,22 @@ std::shared_ptr<VioManager> sys;
 void signal_callback_handler(int signum) { std::exit(signum); }
 
 /**
- * @brief Convert seconds (double) to microseconds (uint64_t)
- */
-inline uint64_t toMicroseconds(double seconds) {
-  return static_cast<uint64_t>(seconds * 1e6);
-}
-
-/**
  * @brief Write IMU measurement line in tiny-vio format
- * Format: IMU,timestamp_us,wx,wy,wz,ax,ay,az
+ * Format: IMU,timestamp_sec,wx,wy,wz,ax,ay,az
+ * Uses full double precision for timestamp to match OpenVINS internal representation
  */
 void writeImuLine(std::ofstream &out, double ts, const Eigen::Vector3d &wm, const Eigen::Vector3d &am) {
-  out << "IMU," << toMicroseconds(ts) << "," << std::setprecision(9) << wm(0) << "," << wm(1) << "," << wm(2) << "," << am(0) << ","
+  out << "IMU," << std::setprecision(17) << ts << "," << std::setprecision(9) << wm(0) << "," << wm(1) << "," << wm(2) << "," << am(0) << ","
       << am(1) << "," << am(2) << "\n";
 }
 
 /**
  * @brief Write FRAME line in tiny-vio format
- * Format: FRAME,timestamp_us,frame_id
+ * Format: FRAME,timestamp_sec,frame_id
+ * Uses full double precision for timestamp to match OpenVINS internal representation
  */
 void writeFrameLine(std::ofstream &out, double ts, uint32_t frame_id) {
-  out << "FRAME," << toMicroseconds(ts) << "," << frame_id << "\n";
+  out << "FRAME," << std::setprecision(17) << ts << "," << frame_id << "\n";
 }
 
 /**
@@ -100,12 +95,12 @@ void writeDetLine(std::ofstream &out, uint32_t frame_id, float u, float v, uint1
 
 /**
  * @brief Write ground truth state line
- * Format: timestamp_us,qx,qy,qz,qw,px,py,pz,vx,vy,vz,bg_x,bg_y,bg_z,ba_x,ba_y,ba_z
+ * Format: timestamp_sec,qx,qy,qz,qw,px,py,pz,vx,vy,vz,bg_x,bg_y,bg_z,ba_x,ba_y,ba_z
+ * Uses full double precision for timestamp to match OpenVINS internal representation
  */
 void writeGroundTruthLine(std::ofstream &out, const Eigen::Matrix<double, 17, 1> &imustate) {
-  uint64_t ts_us = toMicroseconds(imustate(0));
   // imustate format: [time, q_GtoI (x,y,z,w), p_IinG, v_IinG, b_gyro, b_accel]
-  out << ts_us << "," << std::setprecision(9) << imustate(1) << "," // qx
+  out << std::setprecision(17) << imustate(0) << "," << std::setprecision(9) << imustate(1) << "," // qx
       << imustate(2) << ","                                         // qy
       << imustate(3) << ","                                         // qz
       << imustate(4) << ","                                         // qw
