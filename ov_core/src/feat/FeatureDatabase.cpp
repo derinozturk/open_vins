@@ -109,6 +109,13 @@ std::vector<std::shared_ptr<Feature>> FeatureDatabase::features_not_containing_n
     // If it is not being actively tracked, then it is old
     if (!has_newer_measurement) {
       feats_old.push_back((*it).second);
+      // Log for TinyVIO comparison (count total measurements)
+      int ct_meas = 0;
+      for (const auto &pair : (*it).second->timestamps) {
+        ct_meas += (int)pair.second.size();
+      }
+      PRINT_DEBUG("[FEATDB_QUERY] features_lost: track=%zu num_obs=%d (no obs at ts=%.6f)\n",
+                  (*it).second->featid, ct_meas, timestamp);
       if (remove)
         features_idlookup.erase(it++);
       else
@@ -191,6 +198,13 @@ std::vector<std::shared_ptr<Feature>> FeatureDatabase::features_containing(doubl
     // Remove this feature if it contains the specified timestamp
     if (has_timestamp) {
       feats_has_timestamp.push_back((*it).second);
+      // Log for TinyVIO comparison (count total measurements)
+      int ct_meas = 0;
+      for (const auto &pair : (*it).second->timestamps) {
+        ct_meas += (int)pair.second.size();
+      }
+      PRINT_DEBUG("[FEATDB_QUERY] features_containing: track=%zu num_obs=%d (has obs at marg_ts=%.6f)\n",
+                  (*it).second->featid, ct_meas, timestamp);
       if (remove)
         features_idlookup.erase(it++);
       else

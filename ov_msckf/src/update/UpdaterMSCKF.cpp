@@ -84,8 +84,14 @@ void UpdaterMSCKF::update(std::shared_ptr<State> state, std::vector<std::shared_
       ct_meas += (*it0)->timestamps[pair.first].size();
     }
 
+    // Log track details for comparison
+    PRINT_DEBUG("[FEATDB_FILTER] track=%zu num_obs=%d distinct_clones=%d\n",
+                (*it0)->featid, ct_meas, ct_meas);
+
     // Remove if we don't have enough
     if (ct_meas < 2) {
+      PRINT_DEBUG("[FEATDB_FILTER] track=%zu REJECT reason=insufficient_clones (have=%d need=2)\n",
+                  (*it0)->featid, ct_meas);
       (*it0)->to_delete = true;
       it0 = feature_vec.erase(it0);
     } else {
@@ -145,6 +151,7 @@ void UpdaterMSCKF::update(std::shared_ptr<State> state, std::vector<std::shared_
 
     // Remove the feature if not a success
     if (!success_tri || !success_refine) {
+      PRINT_DEBUG("[FEATDB_FILTER] track=%zu REJECT reason=triangulation_failed\n", (*it1)->featid);
       (*it1)->to_delete = true;
       it1 = feature_vec.erase(it1);
       continue;
@@ -244,6 +251,7 @@ void UpdaterMSCKF::update(std::shared_ptr<State> state, std::vector<std::shared_
 
     // Check if we should delete or not
     if (chi2 > _options.chi2_multipler * chi2_check) {
+      PRINT_DEBUG("[FEATDB_FILTER] track=%zu REJECT reason=chi2_gate_failed\n", (*it2)->featid);
       (*it2)->to_delete = true;
       it2 = feature_vec.erase(it2);
       // PRINT_DEBUG("featid = %d\n", feat.featid);
@@ -253,6 +261,10 @@ void UpdaterMSCKF::update(std::shared_ptr<State> state, std::vector<std::shared_
       // PRINT_DEBUG(ss.str().c_str());
       continue;
     }
+
+    // Log acceptance
+    PRINT_DEBUG("[FEATDB_FILTER] track=%zu ACCEPT triangulated_pos=[%.6f,%.6f,%.6f]\n",
+                (*it2)->featid, feat.p_FinG(0), feat.p_FinG(1), feat.p_FinG(2));
 
     // We are good!!! Append to our large H vector
     size_t ct_hx = 0;
