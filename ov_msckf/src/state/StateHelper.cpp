@@ -183,6 +183,15 @@ void StateHelper::EKFUpdate(std::shared_ptr<State> state, const std::vector<std:
 
   // Calculate our delta and update all our active states
   Eigen::VectorXd dx = K * res;
+
+  // EKF update logging for TinyVIO comparison
+  PRINT_DEBUG("[EKF_UPDATE] n_meas=%d state_size=%d\n", (int)res.rows(), (int)state->_Cov.rows());
+  PRINT_DEBUG("[EKF_UPDATE]   S(0,0)=%.9f S(1,1)=%.9f S(2,2)=%.9f\n",
+              S(0,0), S(1,1), (S.rows() > 2) ? S(2,2) : 0.0);
+  PRINT_DEBUG("[EKF_UPDATE]   dx first 6: [%.9f, %.9f, %.9f, %.9f, %.9f, %.9f]\n",
+              dx(0), dx(1), dx(2), dx(3), dx(4), dx(5));
+  PRINT_DEBUG("[EKF_UPDATE]   state_correction norm=%.9f\n", dx.norm());
+
   for (size_t i = 0; i < state->_variables.size(); i++) {
     state->_variables.at(i)->update(dx.block(state->_variables.at(i)->id(), 0, state->_variables.at(i)->size(), 1));
   }

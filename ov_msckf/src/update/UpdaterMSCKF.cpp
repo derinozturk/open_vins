@@ -71,6 +71,9 @@ void UpdaterMSCKF::update(std::shared_ptr<State> state, std::vector<std::shared_
     clonetimes.emplace_back(clone_imu.first);
   }
 
+  // Track selection logging for TinyVIO comparison
+  PRINT_DEBUG("[TRACK_SELECT] n_input=%zu n_clones=%zu\n", feature_vec.size(), clonetimes.size());
+
   // 1. Clean all feature measurements and make sure they all have valid clone times
   auto it0 = feature_vec.begin();
   while (it0 != feature_vec.end()) {
@@ -87,6 +90,15 @@ void UpdaterMSCKF::update(std::shared_ptr<State> state, std::vector<std::shared_
     // Log track details for comparison
     PRINT_DEBUG("[FEATDB_FILTER] track=%zu num_obs=%d distinct_clones=%d\n",
                 (*it0)->featid, ct_meas, ct_meas);
+
+    // Per-track detailed logging
+    PRINT_DEBUG("[TRACK_SELECT]   feat_id=%zu n_obs=%d timestamps=[", (*it0)->featid, ct_meas);
+    for (const auto &pair : (*it0)->timestamps) {
+      for (size_t ti = 0; ti < pair.second.size(); ++ti) {
+        PRINT_DEBUG("%.6f%s", pair.second[ti], (ti < pair.second.size()-1) ? "," : "");
+      }
+    }
+    PRINT_DEBUG("]\n");
 
     // Remove if we don't have enough
     if (ct_meas < 2) {
@@ -249,6 +261,13 @@ void UpdaterMSCKF::update(std::shared_ptr<State> state, std::vector<std::shared_
       PRINT_WARNING(YELLOW "chi2_check over the residual limit - %d\n" RESET, (int)res.rows());
     }
 
+    // Chi-squared gating logging for TinyVIO comparison
+    PRINT_DEBUG("[CHI2_GATE] feat_id=%zu dof=%d chi2=%.6f thresh=%.6f %s\n",
+                (*it2)->featid, (int)res.rows(), chi2, _options.chi2_multipler * chi2_check,
+                (chi2 > _options.chi2_multipler * chi2_check) ? "FAIL" : "PASS");
+    PRINT_DEBUG("[CHI2_GATE]   res_norm=%.6f res_first=[%.9f, %.9f]\n",
+                res.norm(), res(0), (res.rows() > 1) ? res(1) : 0.0);
+
     // Check if we should delete or not
     if (chi2 > _options.chi2_multipler * chi2_check) {
       PRINT_DEBUG("[FEATDB_FILTER] track=%zu REJECT reason=chi2_gate_failed\n", (*it2)->featid);
@@ -313,6 +332,10 @@ void UpdaterMSCKF::update(std::shared_ptr<State> state, std::vector<std::shared_
 
   // Our noise is isotropic, so make it here after our compression
   Eigen::MatrixXd R_big = _options.sigma_pix_sq * Eigen::MatrixXd::Identity(res_big.rows(), res_big.rows());
+
+  // Noise logging for TinyVIO comparison
+  PRINT_DEBUG("[NOISE] sigma_pix=%.6f sigma_pix_sq=%.9f R_rows=%d\n",
+              _options.sigma_pix, _options.sigma_pix_sq, (int)R_big.rows());
 
   // 6. With all good features update the state
   StateHelper::EKFUpdate(state, Hx_order_big, Hx_big, res_big, R_big);

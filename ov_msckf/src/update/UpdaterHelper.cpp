@@ -397,6 +397,14 @@ void UpdaterHelper::get_feature_jacobian_full(std::shared_ptr<State> state, Upda
         H_x.block(2 * c, map_hx[dpfg_dx_order.at(i)], 2, dpfg_dx_order.at(i)->size()).noalias() += dz_dpfg * dpfg_dx.at(i);
       }
 
+      // Per-observation Jacobian logging for TinyVIO comparison
+      PRINT_DEBUG("[OBS_JAC] cam=%zu obs_idx=%zu feat_id=%zu\n", pair.first, m, feature.featid);
+      PRINT_DEBUG("[OBS_JAC]   H_f: [%.9f, %.9f, %.9f; %.9f, %.9f, %.9f]\n",
+                  H_f(2*c, 0), H_f(2*c, 1), H_f(2*c, 2),
+                  H_f(2*c+1, 0), H_f(2*c+1, 1), H_f(2*c+1, 2));
+      PRINT_DEBUG("[OBS_JAC]   res: [%.9f, %.9f]\n", res(2*c), res(2*c+1));
+      PRINT_DEBUG("[OBS_JAC]   p_FinCi: [%.9f, %.9f, %.9f]\n", p_FinCi(0), p_FinCi(1), p_FinCi(2));
+
       //=========================================================================
       //=========================================================================
 
@@ -446,8 +454,17 @@ void UpdaterHelper::nullspace_project_inplace(Eigen::MatrixXd &H_f, Eigen::Matri
   // The H_f jacobian max rank is 3 if it is a 3d position, thus size of the left nullspace is Hf.rows()-3
   // NOTE: need to eigen3 eval here since this experiences aliasing!
   // H_f = H_f.block(H_f.cols(),0,H_f.rows()-H_f.cols(),H_f.cols()).eval();
+  int rows_before = H_x.rows();
   H_x = H_x.block(H_f.cols(), 0, H_x.rows() - H_f.cols(), H_x.cols()).eval();
   res = res.block(H_f.cols(), 0, res.rows() - H_f.cols(), res.cols()).eval();
+
+  // Nullspace projection logging for TinyVIO comparison
+  PRINT_DEBUG("[NULLSPACE_PROJ] rows_before=%d rows_after=%d\n", rows_before, (int)H_x.rows());
+  if (H_x.rows() > 0) {
+    PRINT_DEBUG("[NULLSPACE_PROJ]   H_x_proj first row: [%.9f, %.9f, %.9f, ...]\n",
+                H_x(0, 0), H_x(0, 1), H_x(0, 2));
+    PRINT_DEBUG("[NULLSPACE_PROJ]   res_proj first: [%.9f]\n", res(0));
+  }
 
   // Sanity check
   assert(H_x.rows() == res.rows());
@@ -479,6 +496,9 @@ void UpdaterHelper::measurement_compress_inplace(Eigen::MatrixXd &H_x, Eigen::Ve
   // If H is a fat matrix, then use the rows
   // Else it should be same size as our state
   int r = std::min(H_x.rows(), H_x.cols());
+
+  // Measurement compression logging for TinyVIO comparison
+  PRINT_DEBUG("[MEAS_COMPRESS] rows_before=%d rows_after=%d\n", (int)H_x.rows(), r);
 
   // Construct the smaller jacobian and residual after measurement compression
   assert(r <= H_x.rows());
