@@ -77,6 +77,16 @@ void Propagator::propagate_and_clone(std::shared_ptr<State> state, double timest
   Eigen::MatrixXd Qd_summed = Eigen::MatrixXd::Zero(state->imu_intrinsic_size() + 15, state->imu_intrinsic_size() + 15);
   double dt_summed = 0;
 
+#ifdef OPENVINS_PARITY_DEBUG
+  // Capture pre-propagation state for parity testing
+  Eigen::Vector3d pre_pos = state->_imu->pos();
+  Eigen::Vector3d pre_vel = state->_imu->vel();
+  Eigen::Vector4d pre_quat = state->_imu->quat();
+  Eigen::Vector3d pre_bias_g = state->_imu->bias_g();
+  Eigen::Vector3d pre_bias_a = state->_imu->bias_a();
+  double pre_timestamp = state->_timestamp;
+#endif
+
   // Loop through all IMU messages, and use them to move the state forward in time
   // This uses the zero'th order quat, and then constant acceleration discrete
   if (prop_data.size() > 1) {
@@ -141,6 +151,22 @@ void Propagator::propagate_and_clone(std::shared_ptr<State> state, double timest
 
 #ifdef OPENVINS_PARITY_DEBUG
   // Detailed parity debug output for reference data generation
+  // Pre-propagation state
+  PRINT_DEBUG("[PARITY_PROP] pre_timestamp=%.9f\n", pre_timestamp);
+  PRINT_DEBUG("[PARITY_PROP] pre_pos=%.9f,%.9f,%.9f\n", pre_pos(0), pre_pos(1), pre_pos(2));
+  PRINT_DEBUG("[PARITY_PROP] pre_vel=%.9f,%.9f,%.9f\n", pre_vel(0), pre_vel(1), pre_vel(2));
+  PRINT_DEBUG("[PARITY_PROP] pre_quat=%.9f,%.9f,%.9f,%.9f\n", pre_quat(0), pre_quat(1), pre_quat(2), pre_quat(3));
+  PRINT_DEBUG("[PARITY_PROP] pre_bias_g=%.9f,%.9f,%.9f\n", pre_bias_g(0), pre_bias_g(1), pre_bias_g(2));
+  PRINT_DEBUG("[PARITY_PROP] pre_bias_a=%.9f,%.9f,%.9f\n", pre_bias_a(0), pre_bias_a(1), pre_bias_a(2));
+  // IMU data used for propagation
+  PRINT_DEBUG("[PARITY_PROP] num_imu=%zu\n", prop_data.size());
+  PRINT_DEBUG("[PARITY_PROP] dt=%.9f\n", dt_summed);
+  for (size_t i = 0; i < prop_data.size(); i++) {
+    PRINT_DEBUG("[PARITY_PROP] imu_%zu_t=%.9f\n", i, prop_data[i].timestamp);
+    PRINT_DEBUG("[PARITY_PROP] imu_%zu_w=%.9f,%.9f,%.9f\n", i, prop_data[i].wm(0), prop_data[i].wm(1), prop_data[i].wm(2));
+    PRINT_DEBUG("[PARITY_PROP] imu_%zu_a=%.9f,%.9f,%.9f\n", i, prop_data[i].am(0), prop_data[i].am(1), prop_data[i].am(2));
+  }
+  // Post-propagation state
   PRINT_DEBUG("[PARITY_PROP] timestamp=%.9f\n", state->_timestamp);
   PRINT_DEBUG("[PARITY_PROP] pos=%.9f,%.9f,%.9f\n",
       state->_imu->pos()(0), state->_imu->pos()(1), state->_imu->pos()(2));
