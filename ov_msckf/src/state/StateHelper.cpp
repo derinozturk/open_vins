@@ -196,6 +196,30 @@ void StateHelper::EKFUpdate(std::shared_ptr<State> state, const std::vector<std:
     state->_variables.at(i)->update(dx.block(state->_variables.at(i)->id(), 0, state->_variables.at(i)->size(), 1));
   }
 
+#ifdef OPENVINS_PARITY_DEBUG
+  // High-precision parity debug output for EKF update
+  PRINT_DEBUG("[PARITY_EKF] dx_norm=%.9e\n", dx.norm());
+  PRINT_DEBUG("[PARITY_EKF] dx_pos=%.9e,%.9e,%.9e\n", dx(0), dx(1), dx(2));
+  PRINT_DEBUG("[PARITY_EKF] dx_theta=%.9e,%.9e,%.9e\n", dx(3), dx(4), dx(5));
+  PRINT_DEBUG("[PARITY_EKF] dx_vel=%.9e,%.9e,%.9e\n", dx(6), dx(7), dx(8));
+  // Post-update IMU state
+  auto imu = state->_imu;
+  PRINT_DEBUG("[PARITY_EKF] post_pos=%.9f,%.9f,%.9f\n",
+      imu->pos()(0), imu->pos()(1), imu->pos()(2));
+  PRINT_DEBUG("[PARITY_EKF] post_vel=%.9f,%.9f,%.9f\n",
+      imu->vel()(0), imu->vel()(1), imu->vel()(2));
+  // P diagonal after update (first 15 elements)
+  {
+    std::string p_diag_str = "[PARITY_EKF] P_diag_post=";
+    for (int i = 0; i < 15; i++) {
+      char buf[32];
+      snprintf(buf, sizeof(buf), "%.9e%s", state->_Cov(i,i), i<14 ? "," : "\n");
+      p_diag_str += buf;
+    }
+    PRINT_DEBUG("%s", p_diag_str.c_str());
+  }
+#endif
+
   // If we are doing online intrinsic calibration we should update our camera objects
   // NOTE: is this the best place to put this update logic??? probably..
   if (state->_options.do_calib_camera_intrinsics) {
@@ -612,6 +636,21 @@ void StateHelper::augment_clone(std::shared_ptr<State> state, Eigen::Matrix<doub
               state->_clones_IMU.rbegin()->second->pos()(0),
               state->_clones_IMU.rbegin()->second->pos()(1),
               state->_clones_IMU.rbegin()->second->pos()(2));
+
+#ifdef OPENVINS_PARITY_DEBUG
+  // Detailed parity debug output for reference data generation
+  {
+    auto clone = state->_clones_IMU.at(state->_timestamp);
+    PRINT_DEBUG("[PARITY_CLONE] timestamp=%.9f\n", state->_timestamp);
+    PRINT_DEBUG("[PARITY_CLONE] clone_count=%zu\n", state->_clones_IMU.size());
+    Eigen::Matrix3d R_clone = clone->Rot();
+    PRINT_DEBUG("[PARITY_CLONE] R_GtoI=%.9f,%.9f,%.9f;%.9f,%.9f,%.9f;%.9f,%.9f,%.9f\n",
+        R_clone(0,0),R_clone(0,1),R_clone(0,2), R_clone(1,0),R_clone(1,1),R_clone(1,2), R_clone(2,0),R_clone(2,1),R_clone(2,2));
+    PRINT_DEBUG("[PARITY_CLONE] p_IinG=%.9f,%.9f,%.9f\n",
+        clone->pos()(0), clone->pos()(1), clone->pos()(2));
+    PRINT_DEBUG("[PARITY_CLONE] P_rows=%d\n", (int)state->_Cov.rows());
+  }
+#endif
 
   // If we are doing time calibration, then our clones are a function of the time offset
   // Logic is based on Mingyang Li and Anastasios I. Mourikis paper:

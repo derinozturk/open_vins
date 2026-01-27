@@ -139,6 +139,31 @@ void Propagator::propagate_and_clone(std::shared_ptr<State> state, double timest
               state->_imu->pos()(0), state->_imu->pos()(1), state->_imu->pos()(2),
               state->_imu->vel()(0), state->_imu->vel()(1), state->_imu->vel()(2));
 
+#ifdef OPENVINS_PARITY_DEBUG
+  // Detailed parity debug output for reference data generation
+  PRINT_DEBUG("[PARITY_PROP] timestamp=%.9f\n", state->_timestamp);
+  PRINT_DEBUG("[PARITY_PROP] pos=%.9f,%.9f,%.9f\n",
+      state->_imu->pos()(0), state->_imu->pos()(1), state->_imu->pos()(2));
+  PRINT_DEBUG("[PARITY_PROP] vel=%.9f,%.9f,%.9f\n",
+      state->_imu->vel()(0), state->_imu->vel()(1), state->_imu->vel()(2));
+  Eigen::Vector4d q_parity = state->_imu->quat();
+  PRINT_DEBUG("[PARITY_PROP] quat=%.9f,%.9f,%.9f,%.9f\n", q_parity(0), q_parity(1), q_parity(2), q_parity(3));
+  PRINT_DEBUG("[PARITY_PROP] bias_g=%.9f,%.9f,%.9f\n",
+      state->_imu->bias_g()(0), state->_imu->bias_g()(1), state->_imu->bias_g()(2));
+  PRINT_DEBUG("[PARITY_PROP] bias_a=%.9f,%.9f,%.9f\n",
+      state->_imu->bias_a()(0), state->_imu->bias_a()(1), state->_imu->bias_a()(2));
+  // P diagonal (first 15 elements = IMU state)
+  {
+    std::string p_diag_str = "[PARITY_PROP] P_diag=";
+    for (int i = 0; i < 15; i++) {
+      char buf[32];
+      snprintf(buf, sizeof(buf), "%.9e%s", state->_Cov(i,i), i<14 ? "," : "\n");
+      p_diag_str += buf;
+    }
+    PRINT_DEBUG("%s", p_diag_str.c_str());
+  }
+#endif
+
   // Now perform stochastic cloning
   StateHelper::augment_clone(state, last_w);
 }

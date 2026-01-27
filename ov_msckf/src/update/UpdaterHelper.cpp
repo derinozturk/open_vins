@@ -404,6 +404,23 @@ void UpdaterHelper::get_feature_jacobian_full(std::shared_ptr<State> state, Upda
                   H_f(2*c+1, 0), H_f(2*c+1, 1), H_f(2*c+1, 2));
       PRINT_DEBUG("[OBS_JAC]   res: [%.9f, %.9f]\n", res(2*c), res(2*c+1));
       PRINT_DEBUG("[OBS_JAC]   p_FinCi: [%.9f, %.9f, %.9f]\n", p_FinCi(0), p_FinCi(1), p_FinCi(2));
+#ifdef OPENVINS_PARITY_DEBUG
+      // High-precision parity debug for Jacobians (limit output to first 2 observations)
+      static int parity_jac_count = 0;
+      if (parity_jac_count < 2) {
+        PRINT_DEBUG("[PARITY_JAC] obs_idx=%d timestamp=%.9f\n", parity_jac_count, feature.timestamps[pair.first].at(m));
+        PRINT_DEBUG("[PARITY_JAC] p_FinC=%.9f,%.9f,%.9f\n", p_FinCi(0), p_FinCi(1), p_FinCi(2));
+        PRINT_DEBUG("[PARITY_JAC] res=%.9e,%.9e\n", res(2*c), res(2*c+1));
+        PRINT_DEBUG("[PARITY_JAC] H_f=%.9e,%.9e,%.9e;%.9e,%.9e,%.9e\n",
+            H_f(2*c, 0), H_f(2*c, 1), H_f(2*c, 2),
+            H_f(2*c+1, 0), H_f(2*c+1, 1), H_f(2*c+1, 2));
+        // H_x clone block (first 6 columns for this observation's clone)
+        PRINT_DEBUG("[PARITY_JAC] H_x_clone=%.9e,%.9e,%.9e,%.9e,%.9e,%.9e\n",
+            H_x(2*c, map_hx[clone_Ii]), H_x(2*c, map_hx[clone_Ii]+1), H_x(2*c, map_hx[clone_Ii]+2),
+            H_x(2*c, map_hx[clone_Ii]+3), H_x(2*c, map_hx[clone_Ii]+4), H_x(2*c, map_hx[clone_Ii]+5));
+        parity_jac_count++;
+      }
+#endif
 
       //=========================================================================
       //=========================================================================
@@ -465,6 +482,21 @@ void UpdaterHelper::nullspace_project_inplace(Eigen::MatrixXd &H_f, Eigen::Matri
                 H_x(0, 0), H_x(0, 1), H_x(0, 2));
     PRINT_DEBUG("[NULLSPACE_PROJ]   res_proj first: [%.9f]\n", res(0));
   }
+#ifdef OPENVINS_PARITY_DEBUG
+  // High-precision parity debug output for nullspace projection
+  PRINT_DEBUG("[PARITY_NULL] rows_before=%d rows_after=%d\n", rows_before, (int)H_x.rows());
+  PRINT_DEBUG("[PARITY_NULL] res_norm_after=%.9e\n", res.norm());
+  if (H_x.rows() > 0) {
+    // First row of H_x after projection (first 10 elements)
+    std::string hx_row0 = "[PARITY_NULL] H_x_row0=";
+    for (int i = 0; i < std::min(10, (int)H_x.cols()); i++) {
+      char buf[32];
+      snprintf(buf, sizeof(buf), "%.9e%s", H_x(0, i), i < 9 ? "," : "...\n");
+      hx_row0 += buf;
+    }
+    PRINT_DEBUG("%s", hx_row0.c_str());
+  }
+#endif
 
   // Sanity check
   assert(H_x.rows() == res.rows());

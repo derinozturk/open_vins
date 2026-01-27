@@ -178,6 +178,26 @@ void UpdaterMSCKF::update(std::shared_ptr<State> state, std::vector<std::shared_
     PRINT_DEBUG("[MSCKF_TRI] track=%zu pos=[%.6f,%.6f,%.6f] num_obs=%d first_uv=[%.2f,%.2f] last_uv=[%.2f,%.2f]\n",
                 (*it1)->featid, (*it1)->p_FinG(0), (*it1)->p_FinG(1), (*it1)->p_FinG(2),
                 num_obs, first_uv(0), first_uv(1), last_uv(0), last_uv(1));
+#ifdef OPENVINS_PARITY_DEBUG
+    // High-precision parity debug output for triangulation
+    PRINT_DEBUG("[PARITY_TRI] feat_id=%zu\n", (*it1)->featid);
+    PRINT_DEBUG("[PARITY_TRI] num_obs=%d\n", num_obs);
+    PRINT_DEBUG("[PARITY_TRI] p_FinG=%.9f,%.9f,%.9f\n",
+        (*it1)->p_FinG(0), (*it1)->p_FinG(1), (*it1)->p_FinG(2));
+    PRINT_DEBUG("[PARITY_TRI] uv_first=%.9f,%.9f\n", (double)first_uv(0), (double)first_uv(1));
+    PRINT_DEBUG("[PARITY_TRI] uv_last=%.9f,%.9f\n", (double)last_uv(0), (double)last_uv(1));
+    // Clone timestamps used for this feature
+    {
+      std::string ts_str = "[PARITY_TRI] clone_ts=";
+      const auto& ts_vec = (*it1)->timestamps.at(cam_id);
+      for (size_t ti = 0; ti < ts_vec.size(); ti++) {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "%.9f%s", ts_vec[ti], ti < ts_vec.size()-1 ? "," : "\n");
+        ts_str += buf;
+      }
+      PRINT_DEBUG("%s", ts_str.c_str());
+    }
+#endif
     it1++;
   }
   rT2 = boost::posix_time::microsec_clock::local_time();
@@ -267,6 +287,14 @@ void UpdaterMSCKF::update(std::shared_ptr<State> state, std::vector<std::shared_
                 (chi2 > _options.chi2_multipler * chi2_check) ? "FAIL" : "PASS");
     PRINT_DEBUG("[CHI2_GATE]   res_norm=%.6f res_first=[%.9f, %.9f]\n",
                 res.norm(), res(0), (res.rows() > 1) ? res(1) : 0.0);
+#ifdef OPENVINS_PARITY_DEBUG
+    // High-precision parity debug output for chi-squared gating
+    PRINT_DEBUG("[PARITY_CHI2] feat_id=%zu\n", (*it2)->featid);
+    PRINT_DEBUG("[PARITY_CHI2] dof=%d\n", (int)res.rows());
+    PRINT_DEBUG("[PARITY_CHI2] chi2_stat=%.9e\n", chi2);
+    PRINT_DEBUG("[PARITY_CHI2] chi2_thresh=%.9e\n", _options.chi2_multipler * chi2_check);
+    PRINT_DEBUG("[PARITY_CHI2] pass=%d\n", (chi2 > _options.chi2_multipler * chi2_check) ? 0 : 1);
+#endif
 
     // Check if we should delete or not
     if (chi2 > _options.chi2_multipler * chi2_check) {
