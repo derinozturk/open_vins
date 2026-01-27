@@ -262,6 +262,9 @@ void UpdaterMSCKF::update(std::shared_ptr<State> state, std::vector<std::shared_
     // Get the Jacobian for this feature
     UpdaterHelper::get_feature_jacobian_full(state, feat, H_f, H_x, res, Hx_order);
 
+    // Log per-feature clone observations (for TinyVIO parity comparison)
+    PRINT_DEBUG("[FEAT_CLONES] feat=%zu n_vars=%zu\n", (*it2)->featid, Hx_order.size());
+
     // Nullspace project
     UpdaterHelper::nullspace_project_inplace(H_f, H_x, res);
 
@@ -335,6 +338,13 @@ void UpdaterMSCKF::update(std::shared_ptr<State> state, std::vector<std::shared_
     it2++;
   }
   rT3 = boost::posix_time::microsec_clock::local_time();
+
+  // Log which state variables are included in this update (for TinyVIO parity comparison)
+  PRINT_DEBUG("[HX_ORDER] n_vars=%zu total_cols=%zu\n", Hx_order_big.size(), ct_jacob);
+  for (size_t i = 0; i < Hx_order_big.size(); i++) {
+    auto& var = Hx_order_big[i];
+    PRINT_DEBUG("[HX_ORDER]   var[%zu]: id=%d size=%d\n", i, var->id(), var->size());
+  }
 
   // We have appended all features to our Hx_big, res_big
   // Delete it so we do not reuse information
