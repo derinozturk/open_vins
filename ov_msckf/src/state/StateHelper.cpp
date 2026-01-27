@@ -111,6 +111,19 @@ void StateHelper::EKFPropagation(std::shared_ptr<State> state, const std::vector
   if (found_neg) {
     std::exit(EXIT_FAILURE);
   }
+
+#ifdef OPENVINS_PARITY_DEBUG
+  // Covariance diagonal after propagation (first 15 elements = IMU state)
+  {
+    std::string p_diag_str = "[PARITY_PROP] P_diag=";
+    for (int i = 0; i < 15; i++) {
+      char buf[32];
+      snprintf(buf, sizeof(buf), "%.9e%s", state->_Cov(i,i), i<14 ? "," : "\n");
+      p_diag_str += buf;
+    }
+    PRINT_DEBUG("%s", p_diag_str.c_str());
+  }
+#endif
 }
 
 void StateHelper::EKFUpdate(std::shared_ptr<State> state, const std::vector<std::shared_ptr<Type>> &H_order, const Eigen::MatrixXd &H,

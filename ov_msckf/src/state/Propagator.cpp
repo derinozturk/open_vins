@@ -152,16 +152,7 @@ void Propagator::propagate_and_clone(std::shared_ptr<State> state, double timest
       state->_imu->bias_g()(0), state->_imu->bias_g()(1), state->_imu->bias_g()(2));
   PRINT_DEBUG("[PARITY_PROP] bias_a=%.9f,%.9f,%.9f\n",
       state->_imu->bias_a()(0), state->_imu->bias_a()(1), state->_imu->bias_a()(2));
-  // P diagonal (first 15 elements = IMU state)
-  {
-    std::string p_diag_str = "[PARITY_PROP] P_diag=";
-    for (int i = 0; i < 15; i++) {
-      char buf[32];
-      snprintf(buf, sizeof(buf), "%.9e%s", state->_Cov(i,i), i<14 ? "," : "\n");
-      p_diag_str += buf;
-    }
-    PRINT_DEBUG("%s", p_diag_str.c_str());
-  }
+  // Note: P_diag is output in StateHelper where _Cov is accessible
 #endif
 
   // Now perform stochastic cloning
