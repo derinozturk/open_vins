@@ -35,6 +35,9 @@
     <arg name="calib_imu_intrinsics"    default="false" />
     <arg name="calib_imu_g_sensitivity" default="false" />
 
+    <!-- SLAM features (disabled by default for pure MSCKF) -->
+    <arg name="max_slam" default="0" />
+
     <!-- ================================================================ -->
     <!-- ================================================================ -->
 
@@ -83,6 +86,9 @@
         <param name="calib_cam_timeoffset"    type="bool"   value="$(arg calib_cam_timeoffset)" />
         <param name="calib_imu_intrinsics"    type="bool"   value="$(arg calib_imu_intrinsics)" />
         <param name="calib_imu_g_sensitivity" type="bool"   value="$(arg calib_imu_g_sensitivity)" />
+
+        <!-- SLAM features (0 = pure MSCKF) -->
+        <param name="max_slam"                type="int"    value="$(arg max_slam)" />
 
     </node>
 
