@@ -182,17 +182,17 @@ void UpdaterMSCKF::update(std::shared_ptr<State> state, std::vector<std::shared_
     // High-precision parity debug output for triangulation
     PRINT_DEBUG("[PARITY_TRI] feat_id=%zu\n", (*it1)->featid);
     PRINT_DEBUG("[PARITY_TRI] num_obs=%d\n", num_obs);
-    PRINT_DEBUG("[PARITY_TRI] p_FinG=%.9f,%.9f,%.9f\n",
+    PRINT_DEBUG("[PARITY_TRI] p_FinG=%.17g,%.17g,%.17g\n",
         (*it1)->p_FinG(0), (*it1)->p_FinG(1), (*it1)->p_FinG(2));
-    PRINT_DEBUG("[PARITY_TRI] uv_first=%.9f,%.9f\n", (double)first_uv(0), (double)first_uv(1));
-    PRINT_DEBUG("[PARITY_TRI] uv_last=%.9f,%.9f\n", (double)last_uv(0), (double)last_uv(1));
+    PRINT_DEBUG("[PARITY_TRI] uv_first=%.17g,%.17g\n", (double)first_uv(0), (double)first_uv(1));
+    PRINT_DEBUG("[PARITY_TRI] uv_last=%.17g,%.17g\n", (double)last_uv(0), (double)last_uv(1));
     // Clone timestamps used for this feature
     {
       std::string ts_str = "[PARITY_TRI] clone_ts=";
       const auto& ts_vec = (*it1)->timestamps.at(cam_id);
       for (size_t ti = 0; ti < ts_vec.size(); ti++) {
-        char buf[32];
-        snprintf(buf, sizeof(buf), "%.9f%s", ts_vec[ti], ti < ts_vec.size()-1 ? "," : "\n");
+        char buf[48];
+        snprintf(buf, sizeof(buf), "%.17g%s", ts_vec[ti], ti < ts_vec.size()-1 ? "," : "\n");
         ts_str += buf;
       }
       PRINT_DEBUG("%s", ts_str.c_str());
@@ -291,8 +291,8 @@ void UpdaterMSCKF::update(std::shared_ptr<State> state, std::vector<std::shared_
     // High-precision parity debug output for chi-squared gating
     PRINT_DEBUG("[PARITY_CHI2] feat_id=%zu\n", (*it2)->featid);
     PRINT_DEBUG("[PARITY_CHI2] dof=%d\n", (int)res.rows());
-    PRINT_DEBUG("[PARITY_CHI2] chi2_stat=%.9e\n", chi2);
-    PRINT_DEBUG("[PARITY_CHI2] chi2_thresh=%.9e\n", _options.chi2_multipler * chi2_check);
+    PRINT_DEBUG("[PARITY_CHI2] chi2_stat=%.17g\n", chi2);
+    PRINT_DEBUG("[PARITY_CHI2] chi2_thresh=%.17g\n", _options.chi2_multipler * chi2_check);
     PRINT_DEBUG("[PARITY_CHI2] pass=%d\n", (chi2 > _options.chi2_multipler * chi2_check) ? 0 : 1);
 #endif
 
@@ -352,7 +352,11 @@ void UpdaterMSCKF::update(std::shared_ptr<State> state, std::vector<std::shared_
   Hx_big.conservativeResize(ct_meas, ct_jacob);
 
   // 5. Perform measurement compression
+  int rows_before_compress = (int)Hx_big.rows();
+  int state_cols = (int)Hx_big.cols();
   UpdaterHelper::measurement_compress_inplace(Hx_big, res_big);
+  PRINT_DEBUG("[COMPRESS] before=%d state_cols=%d after=%d\n",
+              rows_before_compress, state_cols, (int)Hx_big.rows());
   if (Hx_big.rows() < 1) {
     return;
   }

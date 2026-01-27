@@ -117,8 +117,8 @@ void StateHelper::EKFPropagation(std::shared_ptr<State> state, const std::vector
   {
     std::string p_diag_str = "[PARITY_PROP] P_diag=";
     for (int i = 0; i < 15; i++) {
-      char buf[32];
-      snprintf(buf, sizeof(buf), "%.9e%s", state->_Cov(i,i), i<14 ? "," : "\n");
+      char buf[48];
+      snprintf(buf, sizeof(buf), "%.17g%s", state->_Cov(i,i), i<14 ? "," : "\n");
       p_diag_str += buf;
     }
     PRINT_DEBUG("%s", p_diag_str.c_str());
@@ -197,6 +197,10 @@ void StateHelper::EKFUpdate(std::shared_ptr<State> state, const std::vector<std:
   // Calculate our delta and update all our active states
   Eigen::VectorXd dx = K * res;
 
+  // EKF_DX logging for mathematical equivalence comparison (matches TinyVIO format)
+  PRINT_DEBUG("[EKF_DX] dx norm=%.9f first6=[%.9f,%.9f,%.9f,%.9f,%.9f,%.9f]\n",
+              dx.norm(), dx(0), dx(1), dx(2), dx(3), dx(4), dx(5));
+
   // EKF update logging for TinyVIO comparison
   PRINT_DEBUG("[EKF_UPDATE] n_meas=%d state_size=%d\n", (int)res.rows(), (int)state->_Cov.rows());
   PRINT_DEBUG("[EKF_UPDATE]   S(0,0)=%.9f S(1,1)=%.9f S(2,2)=%.9f\n",
@@ -211,22 +215,22 @@ void StateHelper::EKFUpdate(std::shared_ptr<State> state, const std::vector<std:
 
 #ifdef OPENVINS_PARITY_DEBUG
   // High-precision parity debug output for EKF update
-  PRINT_DEBUG("[PARITY_EKF] dx_norm=%.9e\n", dx.norm());
-  PRINT_DEBUG("[PARITY_EKF] dx_pos=%.9e,%.9e,%.9e\n", dx(0), dx(1), dx(2));
-  PRINT_DEBUG("[PARITY_EKF] dx_theta=%.9e,%.9e,%.9e\n", dx(3), dx(4), dx(5));
-  PRINT_DEBUG("[PARITY_EKF] dx_vel=%.9e,%.9e,%.9e\n", dx(6), dx(7), dx(8));
+  PRINT_DEBUG("[PARITY_EKF] dx_norm=%.17g\n", dx.norm());
+  PRINT_DEBUG("[PARITY_EKF] dx_pos=%.17g,%.17g,%.17g\n", dx(0), dx(1), dx(2));
+  PRINT_DEBUG("[PARITY_EKF] dx_theta=%.17g,%.17g,%.17g\n", dx(3), dx(4), dx(5));
+  PRINT_DEBUG("[PARITY_EKF] dx_vel=%.17g,%.17g,%.17g\n", dx(6), dx(7), dx(8));
   // Post-update IMU state
   auto imu = state->_imu;
-  PRINT_DEBUG("[PARITY_EKF] post_pos=%.9f,%.9f,%.9f\n",
+  PRINT_DEBUG("[PARITY_EKF] post_pos=%.17g,%.17g,%.17g\n",
       imu->pos()(0), imu->pos()(1), imu->pos()(2));
-  PRINT_DEBUG("[PARITY_EKF] post_vel=%.9f,%.9f,%.9f\n",
+  PRINT_DEBUG("[PARITY_EKF] post_vel=%.17g,%.17g,%.17g\n",
       imu->vel()(0), imu->vel()(1), imu->vel()(2));
   // P diagonal after update (first 15 elements)
   {
     std::string p_diag_str = "[PARITY_EKF] P_diag_post=";
     for (int i = 0; i < 15; i++) {
-      char buf[32];
-      snprintf(buf, sizeof(buf), "%.9e%s", state->_Cov(i,i), i<14 ? "," : "\n");
+      char buf[48];
+      snprintf(buf, sizeof(buf), "%.17g%s", state->_Cov(i,i), i<14 ? "," : "\n");
       p_diag_str += buf;
     }
     PRINT_DEBUG("%s", p_diag_str.c_str());
@@ -654,12 +658,12 @@ void StateHelper::augment_clone(std::shared_ptr<State> state, Eigen::Matrix<doub
   // Detailed parity debug output for reference data generation
   {
     auto clone = state->_clones_IMU.at(state->_timestamp);
-    PRINT_DEBUG("[PARITY_CLONE] timestamp=%.9f\n", state->_timestamp);
+    Eigen::Vector4d q_clone = clone->quat();
+    PRINT_DEBUG("[PARITY_CLONE] timestamp=%.17g\n", state->_timestamp);
     PRINT_DEBUG("[PARITY_CLONE] clone_count=%zu\n", state->_clones_IMU.size());
-    Eigen::Matrix3d R_clone = clone->Rot();
-    PRINT_DEBUG("[PARITY_CLONE] R_GtoI=%.9f,%.9f,%.9f;%.9f,%.9f,%.9f;%.9f,%.9f,%.9f\n",
-        R_clone(0,0),R_clone(0,1),R_clone(0,2), R_clone(1,0),R_clone(1,1),R_clone(1,2), R_clone(2,0),R_clone(2,1),R_clone(2,2));
-    PRINT_DEBUG("[PARITY_CLONE] p_IinG=%.9f,%.9f,%.9f\n",
+    PRINT_DEBUG("[PARITY_CLONE] quat=%.17g,%.17g,%.17g,%.17g\n",
+        q_clone(0), q_clone(1), q_clone(2), q_clone(3));
+    PRINT_DEBUG("[PARITY_CLONE] p_IinG=%.17g,%.17g,%.17g\n",
         clone->pos()(0), clone->pos()(1), clone->pos()(2));
     PRINT_DEBUG("[PARITY_CLONE] P_rows=%d\n", (int)state->_Cov.rows());
   }
