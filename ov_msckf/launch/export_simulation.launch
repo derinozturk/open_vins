@@ -28,6 +28,13 @@
     <!-- if we should perturb the calibration (for testing robustness) -->
     <arg name="sim_do_perturbation" default="false" />
 
+    <!-- calibration flags (disabled by default for simpler state) -->
+    <arg name="calib_cam_extrinsics"    default="false" />
+    <arg name="calib_cam_intrinsics"    default="false" />
+    <arg name="calib_cam_timeoffset"    default="false" />
+    <arg name="calib_imu_intrinsics"    default="false" />
+    <arg name="calib_imu_g_sensitivity" default="false" />
+
     <!-- ================================================================ -->
     <!-- ================================================================ -->
 
@@ -69,6 +76,13 @@
 
         <!-- tracker/extractor properties -->
         <param name="num_pts"                type="int"    value="$(arg num_pts)" />
+
+        <!-- calibration overrides (disable by default for simpler state) -->
+        <param name="calib_cam_extrinsics"    type="bool"   value="$(arg calib_cam_extrinsics)" />
+        <param name="calib_cam_intrinsics"    type="bool"   value="$(arg calib_cam_intrinsics)" />
+        <param name="calib_cam_timeoffset"    type="bool"   value="$(arg calib_cam_timeoffset)" />
+        <param name="calib_imu_intrinsics"    type="bool"   value="$(arg calib_imu_intrinsics)" />
+        <param name="calib_imu_g_sensitivity" type="bool"   value="$(arg calib_imu_g_sensitivity)" />
 
     </node>
 
