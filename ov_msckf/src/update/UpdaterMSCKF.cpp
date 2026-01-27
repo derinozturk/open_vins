@@ -370,6 +370,30 @@ void UpdaterMSCKF::update(std::shared_ptr<State> state, std::vector<std::shared_
   if (Hx_big.rows() < 1) {
     return;
   }
+
+  // Dump H and res after compression for parity comparison
+  PRINT_DEBUG("[PARITY_H] rows=%d cols=%d\n", (int)Hx_big.rows(), (int)Hx_big.cols());
+  for (int r = 0; r < (int)Hx_big.rows() && r < 6; ++r) {
+    std::stringstream ss;
+    ss << "[PARITY_H] H[" << r << "] = ";
+    for (int c = 0; c < (int)Hx_big.cols(); ++c) {
+      char buf[32];
+      snprintf(buf, sizeof(buf), "%.9f ", Hx_big(r, c));
+      ss << buf;
+    }
+    PRINT_DEBUG("%s\n", ss.str().c_str());
+  }
+  {
+    std::stringstream ss;
+    ss << "[PARITY_H] res = ";
+    for (int r = 0; r < (int)res_big.rows() && r < 10; ++r) {
+      char buf[32];
+      snprintf(buf, sizeof(buf), "%.9f ", res_big(r));
+      ss << buf;
+    }
+    PRINT_DEBUG("%s\n", ss.str().c_str());
+  }
+
   rT4 = boost::posix_time::microsec_clock::local_time();
 
   // Our noise is isotropic, so make it here after our compression
