@@ -178,6 +178,10 @@ void UpdaterMSCKF::update(std::shared_ptr<State> state, std::vector<std::shared_
     PRINT_DEBUG("[MSCKF_TRI] track=%zu pos=[%.6f,%.6f,%.6f] num_obs=%d first_uv=[%.2f,%.2f] last_uv=[%.2f,%.2f]\n",
                 (*it1)->featid, (*it1)->p_FinG(0), (*it1)->p_FinG(1), (*it1)->p_FinG(2),
                 num_obs, first_uv(0), first_uv(1), last_uv(0), last_uv(1));
+
+    // MSCKF_FEAT: Feature selection and triangulation result (for parity comparison)
+    PRINT_DEBUG("[MSCKF_FEAT] feat_id=%zu num_obs=%d p_FinG=[%e,%e,%e]\n",
+                (*it1)->featid, num_obs, (*it1)->p_FinG(0), (*it1)->p_FinG(1), (*it1)->p_FinG(2));
 #ifdef OPENVINS_PARITY_DEBUG
     // High-precision parity debug output for triangulation
     PRINT_DEBUG("[PARITY_TRI] feat_id=%zu\n", (*it1)->featid);
@@ -290,6 +294,11 @@ void UpdaterMSCKF::update(std::shared_ptr<State> state, std::vector<std::shared_
                 (chi2 > _options.chi2_multipler * chi2_check) ? "FAIL" : "PASS");
     PRINT_DEBUG("[CHI2_GATE]   res_norm=%.6f res_first=[%.9f, %.9f]\n",
                 res.norm(), res(0), (res.rows() > 1) ? res(1) : 0.0);
+
+    // MSCKF_CHI2: Chi-squared gating result (for parity comparison)
+    PRINT_DEBUG("[MSCKF_CHI2] chi2=%e thresh=%e pass=%d\n",
+                chi2, _options.chi2_multipler * chi2_check,
+                (chi2 > _options.chi2_multipler * chi2_check) ? 0 : 1);
 #ifdef OPENVINS_PARITY_DEBUG
     // High-precision parity debug output for chi-squared gating
     PRINT_DEBUG("[PARITY_CHI2] feat_id=%zu\n", (*it2)->featid);
@@ -364,9 +373,18 @@ void UpdaterMSCKF::update(std::shared_ptr<State> state, std::vector<std::shared_
   // 5. Perform measurement compression
   int rows_before_compress = (int)Hx_big.rows();
   int state_cols = (int)Hx_big.cols();
+
+  // MSCKF_STACK: Stacked system before compression (for parity comparison)
+  PRINT_DEBUG("[MSCKF_STACK] rows=%d cols=%d H_norm=%e res_norm=%e\n",
+              rows_before_compress, state_cols, Hx_big.norm(), res_big.norm());
+
   UpdaterHelper::measurement_compress_inplace(Hx_big, res_big);
   PRINT_DEBUG("[COMPRESS] before=%d state_cols=%d after=%d\n",
               rows_before_compress, state_cols, (int)Hx_big.rows());
+
+  // MSCKF_COMPRESS: After compression (for parity comparison)
+  PRINT_DEBUG("[MSCKF_COMPRESS] rows=%d cols=%d H_norm=%e res_norm=%e\n",
+              (int)Hx_big.rows(), (int)Hx_big.cols(), Hx_big.norm(), res_big.norm());
   if (Hx_big.rows() < 1) {
     return;
   }

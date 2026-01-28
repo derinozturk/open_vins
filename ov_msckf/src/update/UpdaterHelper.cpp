@@ -446,6 +446,10 @@ void UpdaterHelper::get_feature_jacobian_full(std::shared_ptr<State> state, Upda
       c++;
     }
   }
+
+  // MSCKF_JAC: Jacobian summary after building (for parity comparison)
+  PRINT_DEBUG("[MSCKF_JAC] feat_id=%zu H_f=[%e,%e,%e] H_x_norm=%e res_norm=%e\n",
+              feature.featid, H_f(0,0), H_f(0,1), H_f(0,2), H_x.norm(), res.norm());
 }
 
 void UpdaterHelper::nullspace_project_inplace(Eigen::MatrixXd &H_f, Eigen::MatrixXd &H_x, Eigen::VectorXd &res) {
@@ -482,6 +486,10 @@ void UpdaterHelper::nullspace_project_inplace(Eigen::MatrixXd &H_f, Eigen::Matri
                 H_x(0, 0), H_x(0, 1), H_x(0, 2));
     PRINT_DEBUG("[NULLSPACE_PROJ]   res_proj first: [%.9f]\n", res(0));
   }
+
+  // MSCKF_NULL: After nullspace projection (for parity comparison)
+  PRINT_DEBUG("[MSCKF_NULL] rows_before=%d rows_after=%d H_x_norm=%e\n",
+              rows_before, (int)H_x.rows(), H_x.norm());
 #ifdef OPENVINS_PARITY_DEBUG
   // High-precision parity debug output for nullspace projection
   PRINT_DEBUG("[PARITY_NULL] rows_before=%d rows_after=%d\n", rows_before, (int)H_x.rows());

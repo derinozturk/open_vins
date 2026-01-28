@@ -163,11 +163,20 @@ void StateHelper::EKFUpdate(std::shared_ptr<State> state, const std::vector<std:
   // Get covariance of the involved terms
   Eigen::MatrixXd P_small = StateHelper::get_marginal_covariance(state, H_order);
 
+  // MSCKF_P_PRE: Covariance diagonal before update (for parity comparison)
+  // Velocity is at index 6-8 in IMU state (after orientation[4] and position[3])
+  PRINT_DEBUG("[MSCKF_P_PRE] P_v=[%e,%e,%e]\n",
+              state->_Cov(6,6), state->_Cov(7,7), state->_Cov(8,8));
+
   // Residual covariance S = H*Cov*H' + R
   Eigen::MatrixXd S(R.rows(), R.rows());
   S.triangularView<Eigen::Upper>() = H * P_small * H.transpose();
   S.triangularView<Eigen::Upper>() += R;
   // Eigen::MatrixXd S = H * P_small * H.transpose() + R;
+
+  // MSCKF_S: Innovation covariance (for parity comparison)
+  PRINT_DEBUG("[MSCKF_S] S_diag=[%e,%e,%e] S_norm=%e\n",
+              S(0,0), S(1,1), (S.rows() > 2) ? S(2,2) : 0.0, S.norm());
 
   // Invert our S (should we use a more stable method here??)
   Eigen::MatrixXd Sinv = Eigen::MatrixXd::Identity(R.rows(), R.rows());
@@ -180,6 +189,10 @@ void StateHelper::EKFUpdate(std::shared_ptr<State> state, const std::vector<std:
   state->_Cov = state->_Cov.selfadjointView<Eigen::Upper>();
   // Cov -= K * M_a.transpose();
   // Cov = 0.5*(Cov+Cov.transpose());
+
+  // MSCKF_P_POST: Covariance diagonal after update (for parity comparison)
+  PRINT_DEBUG("[MSCKF_P_POST] P_v=[%e,%e,%e]\n",
+              state->_Cov(6,6), state->_Cov(7,7), state->_Cov(8,8));
 
   // We should check if we are not positive semi-definitate (i.e. negative diagionals is not s.p.d)
   Eigen::VectorXd diags = state->_Cov.diagonal();
@@ -200,6 +213,10 @@ void StateHelper::EKFUpdate(std::shared_ptr<State> state, const std::vector<std:
   // EKF_DX logging for mathematical equivalence comparison (matches TinyVIO format)
   PRINT_DEBUG("[EKF_DX] dx norm=%.9f first6=[%.9f,%.9f,%.9f,%.9f,%.9f,%.9f]\n",
               dx.norm(), dx(0), dx(1), dx(2), dx(3), dx(4), dx(5));
+
+  // MSCKF_DX: State correction (for parity comparison)
+  PRINT_DEBUG("[MSCKF_DX] dx_theta=[%e,%e,%e] dx_v=[%e,%e,%e]\n",
+              dx(0), dx(1), dx(2), dx(6), dx(7), dx(8));
 
   // EKF update logging for TinyVIO comparison
   PRINT_DEBUG("[EKF_UPDATE] n_meas=%d state_size=%d\n", (int)res.rows(), (int)state->_Cov.rows());
