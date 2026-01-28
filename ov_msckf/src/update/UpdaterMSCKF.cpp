@@ -229,6 +229,12 @@ void UpdaterMSCKF::update(std::shared_ptr<State> state, std::vector<std::shared_
   size_t ct_jacob = 0;
   size_t ct_meas = 0;
 
+  // DEBUG: Log allocated matrix sizes
+  PRINT_DEBUG("[MATRIX_ALLOC] n_features=%zu max_meas_size=%zu max_hx_size=%zu\n",
+              feature_vec.size(), max_meas_size, max_hx_size);
+  PRINT_DEBUG("[MATRIX_ALLOC] Hx_big allocated: %zu rows x %zu cols (%.2f MB)\n",
+              max_meas_size, max_hx_size, (max_meas_size * max_hx_size * 8.0) / (1024.0 * 1024.0));
+
   // 4. Compute linear system for each feature, nullspace project, and reject
   auto it2 = feature_vec.begin();
   while (it2 != feature_vec.end()) {
@@ -369,6 +375,12 @@ void UpdaterMSCKF::update(std::shared_ptr<State> state, std::vector<std::shared_
   assert(ct_jacob <= max_hx_size);
   res_big.conservativeResize(ct_meas, 1);
   Hx_big.conservativeResize(ct_meas, ct_jacob);
+
+  // DEBUG: Log actual matrix sizes after stacking features
+  PRINT_DEBUG("[MATRIX_ACTUAL] n_features_stacked=%zu ct_meas=%zu ct_jacob=%zu\n",
+              feature_vec.size(), ct_meas, ct_jacob);
+  PRINT_DEBUG("[MATRIX_ACTUAL] Hx_big used: %zu rows x %zu cols (%.2f MB)\n",
+              ct_meas, ct_jacob, (ct_meas * ct_jacob * 8.0) / (1024.0 * 1024.0));
 
   // 5. Perform measurement compression
   int rows_before_compress = (int)Hx_big.rows();
