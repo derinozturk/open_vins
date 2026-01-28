@@ -106,6 +106,11 @@ void Propagator::propagate_and_clone(std::shared_ptr<State> state, double timest
       Qd_summed = F * Qd_summed * F.transpose() + Qdi;
       Qd_summed = 0.5 * (Qd_summed + Qd_summed.transpose());
       dt_summed += prop_data.at(i + 1).timestamp - prop_data.at(i).timestamp;
+
+      // PARITY_ACCUM: Log accumulated Phi and Qd after each IMU pair
+      int v_id_accum = 6;  // velocity starts at index 6
+      PRINT_DEBUG("[PARITY_ACCUM] step=%d Phi_v_v=%e Qd_sum_v=%e\n",
+                  (int)i, Phi_summed(v_id_accum, v_id_accum), Qd_summed(v_id_accum, v_id_accum));
     }
   }
   assert(std::abs((time1 - time0) - dt_summed) < 1e-4);
@@ -137,7 +142,20 @@ void Propagator::propagate_and_clone(std::shared_ptr<State> state, double timest
       Phi_order.push_back(state->_calib_imu_ACCtoIMU);
     }
   }
+
+  // PARITY_PRE_P: Log P_diag velocity entries before EKFPropagation
+  // Velocity is at indices 7,8,9 in the full state (after quat[4] and pos[3])
+  // But in the IMU block covariance (15x15), velocity error state is at 6,7,8
+  int imu_id = state->_imu->id();
+  int v_cov_id = imu_id + 6;  // velocity in full covariance matrix
+  PRINT_DEBUG("[PARITY_PRE_P] P_v=[%e,%e,%e]\n",
+              state->_Cov(v_cov_id, v_cov_id), state->_Cov(v_cov_id+1, v_cov_id+1), state->_Cov(v_cov_id+2, v_cov_id+2));
+
   StateHelper::EKFPropagation(state, Phi_order, Phi_order, Phi_summed, Qd_summed);
+
+  // PARITY_POST_P: Log P_diag velocity entries after EKFPropagation
+  PRINT_DEBUG("[PARITY_POST_P] P_v=[%e,%e,%e]\n",
+              state->_Cov(v_cov_id, v_cov_id), state->_Cov(v_cov_id+1, v_cov_id+1), state->_Cov(v_cov_id+2, v_cov_id+2));
 
   // Set timestamp data
   state->_timestamp = timestamp;
@@ -513,10 +531,30 @@ void Propagator::predict_and_compute(std::shared_ptr<State> state, const ov_core
   Qc.block(6, 6, 3, 3) = std::pow(_noises.sigma_wb, 2) / dt * Eigen::Matrix3d::Identity();
   Qc.block(9, 9, 3, 3) = std::pow(_noises.sigma_ab, 2) / dt * Eigen::Matrix3d::Identity();
 
+  // PARITY_QC: Log Qc diagonal entries immediately after building Qc
+  PRINT_DEBUG("[PARITY_QC] gyro=%e accel=%e gyro_rw=%e accel_rw=%e dt=%e\n",
+              Qc(0,0), Qc(3,3), Qc(6,6), Qc(9,9), dt);
+
+  // PARITY_F: Log F matrix entries that affect velocity (v_id=6 for standard 15-state IMU)
+  int v_id_parity = 6;  // velocity starts at index 6 in IMU error state
+  int th_id_parity = 0; // orientation at index 0
+  int ba_id_parity = 12; // accel bias at index 12
+  PRINT_DEBUG("[PARITY_F] F_v_theta=[%e,%e,%e] F_v_ba=[%e,%e,%e]\n",
+              F(v_id_parity, th_id_parity), F(v_id_parity, th_id_parity+1), F(v_id_parity, th_id_parity+2),
+              F(v_id_parity, ba_id_parity), F(v_id_parity, ba_id_parity+1), F(v_id_parity, ba_id_parity+2));
+
+  // PARITY_G: Log G matrix entries for velocity row
+  PRINT_DEBUG("[PARITY_G] G_v_nw=[%e,%e,%e] G_v_na=[%e,%e,%e]\n",
+              G(v_id_parity, 0), G(v_id_parity, 1), G(v_id_parity, 2),
+              G(v_id_parity, 3), G(v_id_parity, 4), G(v_id_parity, 5));
+
   // Compute the noise injected into the state over the interval
   Qd = Eigen::MatrixXd::Zero(state->imu_intrinsic_size() + 15, state->imu_intrinsic_size() + 15);
   Qd = G * Qc * G.transpose();
   Qd = 0.5 * (Qd + Qd.transpose());
+
+  // PARITY_QD: Log Qd block for velocity (6:9, 6:9)
+  PRINT_DEBUG("[PARITY_QD] Qd_v=[%e,%e,%e]\n", Qd(v_id_parity, v_id_parity), Qd(v_id_parity+1, v_id_parity+1), Qd(v_id_parity+2, v_id_parity+2));
 
   // Now replace imu estimate and fej with propagated values
   Eigen::Matrix<double, 16, 1> imu_x = state->_imu->value();
