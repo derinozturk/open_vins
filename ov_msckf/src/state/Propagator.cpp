@@ -144,18 +144,19 @@ void Propagator::propagate_and_clone(std::shared_ptr<State> state, double timest
   }
 
   // PARITY_PRE_P: Log P_diag velocity entries before EKFPropagation
-  // Velocity is at indices 7,8,9 in the full state (after quat[4] and pos[3])
-  // But in the IMU block covariance (15x15), velocity error state is at 6,7,8
-  int imu_id = state->_imu->id();
-  int v_cov_id = imu_id + 6;  // velocity in full covariance matrix
-  PRINT_DEBUG("[PARITY_PRE_P] P_v=[%e,%e,%e]\n",
-              state->_Cov(v_cov_id, v_cov_id), state->_Cov(v_cov_id+1, v_cov_id+1), state->_Cov(v_cov_id+2, v_cov_id+2));
+  // Use StateHelper to get marginal covariance of IMU state (velocity is at index 6,7,8 in 15x15 IMU block)
+  {
+    Eigen::MatrixXd P_imu_pre = StateHelper::get_marginal_covariance(state, {state->_imu});
+    PRINT_DEBUG("[PARITY_PRE_P] P_v=[%e,%e,%e]\n", P_imu_pre(6,6), P_imu_pre(7,7), P_imu_pre(8,8));
+  }
 
   StateHelper::EKFPropagation(state, Phi_order, Phi_order, Phi_summed, Qd_summed);
 
   // PARITY_POST_P: Log P_diag velocity entries after EKFPropagation
-  PRINT_DEBUG("[PARITY_POST_P] P_v=[%e,%e,%e]\n",
-              state->_Cov(v_cov_id, v_cov_id), state->_Cov(v_cov_id+1, v_cov_id+1), state->_Cov(v_cov_id+2, v_cov_id+2));
+  {
+    Eigen::MatrixXd P_imu_post = StateHelper::get_marginal_covariance(state, {state->_imu});
+    PRINT_DEBUG("[PARITY_POST_P] P_v=[%e,%e,%e]\n", P_imu_post(6,6), P_imu_post(7,7), P_imu_post(8,8));
+  }
 
   // Set timestamp data
   state->_timestamp = timestamp;
