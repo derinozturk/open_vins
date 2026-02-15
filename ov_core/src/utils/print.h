@@ -19,6 +19,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+/*
+ * Extended by tiny-vio project to add structured (JSON) logging support.
+ * Original interface is preserved; JSON output is controlled via:
+ *   - Environment variable: OPENVINS_LOG_FORMAT=json|text
+ *   - Static method: Printer::setOutputFormat(OutputFormat::JSON)
+ */
+
 #ifndef OV_CORE_PRINT_H
 #define OV_CORE_PRINT_H
 
@@ -38,6 +45,13 @@ namespace ov_core {
  * ov_core::Printer::setPrintLevel("WARNING");
  * ov_core::Printer::setPrintLevel(ov_core::Printer::PrintLevel::WARNING);
  * @endcode
+ *
+ * To enable JSON output for structured logging:
+ * @code{.cpp}
+ * ov_core::Printer::setOutputFormat("json");
+ * ov_core::Printer::setOutputFormat(ov_core::Printer::OutputFormat::JSON);
+ * @endcode
+ * Or via environment variable: OPENVINS_LOG_FORMAT=json
  */
 class Printer {
 public:
@@ -54,6 +68,14 @@ public:
   enum PrintLevel { ALL = 0, DEBUG = 1, INFO = 2, WARNING = 3, ERROR = 4, SILENT = 5 };
 
   /**
+   * @brief The different output formats possible
+   *
+   * - OutputFormat::TEXT : Original human-readable output (default)
+   * - OutputFormat::JSON : JSON Lines format for structured logging
+   */
+  enum OutputFormat { TEXT = 0, JSON = 1 };
+
+  /**
    * @brief Set the print level to use for all future printing to stdout.
    * @param level The debug level to use
    */
@@ -64,6 +86,18 @@ public:
    * @param level The debug level to use
    */
   static void setPrintLevel(PrintLevel level);
+
+  /**
+   * @brief Set the output format for all future printing.
+   * @param format The output format ("text" or "json")
+   */
+  static void setOutputFormat(const std::string &format);
+
+  /**
+   * @brief Set the output format for all future printing.
+   * @param format The output format to use
+   */
+  static void setOutputFormat(OutputFormat format);
 
   /**
    * @brief The print function that prints to stdout.
@@ -77,9 +111,18 @@ public:
   /// The current print level
   static PrintLevel current_print_level;
 
+  /// The current output format
+  static OutputFormat current_output_format;
+
 private:
   /// The max length for the file path.  This is to avoid very long file paths from
   static constexpr uint32_t MAX_FILE_PATH_LEGTH = 30;
+
+  /// Initialize output format from environment variable (called once)
+  static void initOutputFormatFromEnv();
+
+  /// Flag to track if we've initialized from environment
+  static bool output_format_initialized;
 };
 
 } /* namespace ov_core */
